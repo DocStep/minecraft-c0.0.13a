@@ -1,0 +1,2 @@
+gradlew runGame
+::pause

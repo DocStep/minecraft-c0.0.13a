@@ -1,0 +1,40 @@
+plugins {
+    id 'java'
+    id 'application'
+}
+
+repositories {
+    mavenCentral()
+    flatDir {
+        dirs 'libs'  // <-- folder with your JARs
+    }
+}
+
+dependencies {
+    implementation 'lwjgl:lwjgl:2.9.0'
+    implementation 'lwjgl_util:lwjgl_util:2.9.0'
+}
+
+// Include your assets in the JAR
+jar {
+    archiveBaseName = 'minecraft-c0.013a'
+    manifest {
+        attributes('Main-Class': 'com.mojang.minecraft.Minecraft')
+    }
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.compilerArgs += "-Xlint:-removal"
+}
+
+// Optional: task to run directly from Gradle
+tasks.register('runGame', JavaExec) {
+    group = 'application'
+    description = 'Run Minecraft c0.013a'
+    mainClass.set('com.mojang.minecraft.Minecraft')
+    classpath = sourceSets.main.runtimeClasspath
+    jvmArgs = ["-Djava.library.path=libs/natives"]
+}
