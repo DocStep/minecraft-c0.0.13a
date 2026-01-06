@@ -6,274 +6,229 @@ import java.util.ArrayList;
 import java.util.Random;
 
 public class Level {
-   private static final int TILE_UPDATE_INTERVAL = 200;
-   public int width;
-   public int height;
-   public int depth;
-   byte[] blocks;
-   private int[] lightDepths;
-   private ArrayList<LevelListener> levelListeners = new ArrayList<>();
-   private Random random = new Random();
-   private int randValue = this.random.nextInt();
-   public String name;
-   public String creator;
-   public long createTime;
-   int unprocessed = 0;
-   private static final int multiplier = 1664525;
-   private static final int addend = 1013904223;
+    private static final int TILE_UPDATE_INTERVAL = 200;
+    public int width;
+    public int height;
+    public int depth;
+    byte[] blocks;
+    private int[] lightDepths;
+    private ArrayList<LevelListener> levelListeners = new ArrayList<>();
+    private Random random = new Random();
+    private int randValue = this.random.nextInt();
+    public String name;
+    public String creator;
+    public long createTime;
+    int unprocessed = 0;
+    private static final int multiplier = 1664525;
+    private static final int addend = 1013904223;
 
-   public void setData(int w, int d, int h, byte[] blocks) {
-      this.width = w;
-      this.height = h;
-      this.depth = d;
-      this.blocks = blocks;
-      this.lightDepths = new int[w * h];
-      this.calcLightDepths(0, 0, w, h);
+    public void setData(int w, int d, int h, byte[] blocks) {
+        this.width = w;
+        this.height = h;
+        this.depth = d;
+        this.blocks = blocks;
+        this.lightDepths = new int[w * h];
+        this.calcLightDepths(0, 0, w, h);
 
-      for (int i = 0; i < this.levelListeners.size(); i++) {
-         this.levelListeners.get(i).allChanged();
-      }
-   }
+        for (int i = 0; i < this.levelListeners.size(); i++) {
+            this.levelListeners.get(i).allChanged();
+        }
+    }
 
-   public void calcLightDepths(int x0, int y0, int x1, int y1) {
-      for (int x = x0; x < x0 + x1; x++) {
-         for (int z = y0; z < y0 + y1; z++) {
-            int oldDepth = this.lightDepths[x + z * this.width];
-            int y = this.depth - 1;
+    public void calcLightDepths(int x0, int y0, int x1, int y1) {
+        for (int x = x0; x < x0 + x1; x++) {
+            for (int z = y0; z < y0 + y1; z++) {
+                int oldDepth = this.lightDepths[x + z * this.width];
+                int y = this.depth - 1;
 
-            while (y > 0 && !this.isLightBlocker(x, y, z)) {
-               y--;
+                while (y > 0 && !this.isLightBlocker(x, y, z)) {
+                    y--;
+                }
+
+                this.lightDepths[x + z * this.width] = y + 1;
+                if (oldDepth != y) {
+                    int yl0 = oldDepth < y ? oldDepth : y;
+                    int yl1 = oldDepth > y ? oldDepth : y;
+
+                    for (int i = 0; i < this.levelListeners.size(); i++) {
+                        this.levelListeners.get(i).lightColumnChanged(x, z, yl0, yl1);
+                    }
+                }
             }
+        }
+    }
 
-            this.lightDepths[x + z * this.width] = y + 1;
-            if (oldDepth != y) {
-               int yl0 = oldDepth < y ? oldDepth : y;
-               int yl1 = oldDepth > y ? oldDepth : y;
+    public void addListener(LevelListener levelListener) {
+        this.levelListeners.add(levelListener);
+    }
 
-               for (int i = 0; i < this.levelListeners.size(); i++) {
-                  this.levelListeners.get(i).lightColumnChanged(x, z, yl0, yl1);
-               }
+    public void removeListener(LevelListener levelListener) {
+        this.levelListeners.remove(levelListener);
+    }
+
+    public boolean isLightBlocker(int x, int y, int z) {
+        Tile tile = Tile.terrainTiles[this.getTile(x, y, z)];
+        return tile == null ? false : tile.blocksLight();
+    }
+
+    public ArrayList<AABB> getCubes(AABB box) {
+        ArrayList<AABB> boxes = new ArrayList<>();
+        int x0 = (int)Math.floor(box.x0);
+        int x1 = (int)Math.floor(box.x1 + 1.0F);
+        int y0 = (int)Math.floor(box.y0);
+        int y1 = (int)Math.floor(box.y1 + 1.0F);
+        int z0 = (int)Math.floor(box.z0);
+        int z1 = (int)Math.floor(box.z1 + 1.0F);
+
+        for (int x = x0; x < x1; x++) {
+            for (int y = y0; y < y1; y++) {
+                for (int z = z0; z < z1; z++) {
+                    if (x >= 0 && y >= 0 && z >= 0 && x < this.width && y < this.depth && z < this.height) {
+                        Tile tile = Tile.terrainTiles[this.getTile(x, y, z)];
+                        if (tile != null) {
+                            AABB aabb = tile.getAABB(x, y, z);
+                            if (aabb != null) {
+                                boxes.add(aabb);
+                            }
+                        }
+                    } else if (x < 0 || y < 0 || z < 0 || x >= this.width || z >= this.height) {
+                        AABB aabb = Tile.unbreakable.getAABB(x, y, z);
+                        if (aabb != null) {
+                            boxes.add(aabb);
+                        }
+                    }
+                }
             }
-         }
-      }
-   }
+        }
 
-   public void addListener(LevelListener levelListener) {
-      this.levelListeners.add(levelListener);
-   }
+        return boxes;
+    }
 
-   public void removeListener(LevelListener levelListener) {
-      this.levelListeners.remove(levelListener);
-   }
+    public boolean setTile(int x, int y, int z, int type, boolean update) {
+        if (x >= 0 && y >= 0 && z >= 0 && x < this.width && y < this.depth && z < this.height) {
+            if (type == this.blocks[(y * this.height + z) * this.width + x]) {
+                return false;
+            } else {
+                this.blocks[(y * this.height + z) * this.width + x] = (byte)type;
+                if (update) {
+                    this.neighborChanged(x - 1, y, z, type);
+                    this.neighborChanged(x + 1, y, z, type);
+                    this.neighborChanged(x, y - 1, z, type);
+                    this.neighborChanged(x, y + 1, z, type);
+                    this.neighborChanged(x, y, z - 1, type);
+                    this.neighborChanged(x, y, z + 1, type);
+                    this.calcLightDepths(x, z, 1, 1);
+                }
 
-   public boolean isLightBlocker(int x, int y, int z) {
-      Tile tile = Tile.tiles[this.getTile(x, y, z)];
-      return tile == null ? false : tile.blocksLight();
-   }
+                for (int i = 0; i < this.levelListeners.size(); i++) {
+                    this.levelListeners.get(i).tileChanged(x, y, z);
+                }
 
-   public ArrayList<AABB> getCubes(AABB box) {
-      ArrayList<AABB> boxes = new ArrayList<>();
-      int x0 = (int)Math.floor(box.x0);
-      int x1 = (int)Math.floor(box.x1 + 1.0F);
-      int y0 = (int)Math.floor(box.y0);
-      int y1 = (int)Math.floor(box.y1 + 1.0F);
-      int z0 = (int)Math.floor(box.z0);
-      int z1 = (int)Math.floor(box.z1 + 1.0F);
-
-      for (int x = x0; x < x1; x++) {
-         for (int y = y0; y < y1; y++) {
-            for (int z = z0; z < z1; z++) {
-               if (x >= 0 && y >= 0 && z >= 0 && x < this.width && y < this.depth && z < this.height) {
-                  Tile tile = Tile.tiles[this.getTile(x, y, z)];
-                  if (tile != null) {
-                     AABB aabb = tile.getAABB(x, y, z);
-                     if (aabb != null) {
-                        boxes.add(aabb);
-                     }
-                  }
-               } else if (x < 0 || y < 0 || z < 0 || x >= this.width || z >= this.height) {
-                  AABB aabb = Tile.unbreakable.getAABB(x, y, z);
-                  if (aabb != null) {
-                     boxes.add(aabb);
-                  }
-               }
+                return true;
             }
-         }
-      }
-
-      return boxes;
-   }
-
-   public boolean setTile(int x, int y, int z, int type) {
-      if (x >= 0 && y >= 0 && z >= 0 && x < this.width && y < this.depth && z < this.height) {
-         if (type == this.blocks[(y * this.height + z) * this.width + x]) {
+        } else {
             return false;
-         } else {
-            this.blocks[(y * this.height + z) * this.width + x] = (byte)type;
-            this.neighborChanged(x - 1, y, z, type);
-            this.neighborChanged(x + 1, y, z, type);
-            this.neighborChanged(x, y - 1, z, type);
-            this.neighborChanged(x, y + 1, z, type);
-            this.neighborChanged(x, y, z - 1, type);
-            this.neighborChanged(x, y, z + 1, type);
-            this.calcLightDepths(x, z, 1, 1);
+        }
+    }
 
-            for (int i = 0; i < this.levelListeners.size(); i++) {
-               this.levelListeners.get(i).tileChanged(x, y, z);
+    private void neighborChanged(int x, int y, int z, int type) {
+        if (x >= 0 && y >= 0 && z >= 0 && x < this.width && y < this.depth && z < this.height) {
+            Tile tile = Tile.terrainTiles[this.blocks[(y * this.height + z) * this.width + x]];
+            if (tile != null) {
+                tile.neighborChanged(this, x, y, z, type);
             }
+        }
+    }
 
-            return true;
-         }
-      } else {
-         return false;
-      }
-   }
+    public boolean isLit(int x, int y, int z) {
+        return x < 0 || y < 0 || z < 0 || x >= this.width || y >= this.depth || z >= this.height ? true : y >= this.lightDepths[x + z * this.width];
+    }
 
-   public boolean setTileNoUpdate(int x, int y, int z, int type) {
-      if (x >= 0 && y >= 0 && z >= 0 && x < this.width && y < this.depth && z < this.height) {
-         if (type == this.blocks[(y * this.height + z) * this.width + x]) {
-            return false;
-         } else {
-            this.blocks[(y * this.height + z) * this.width + x] = (byte)type;
-            return true;
-         }
-      } else {
-         return false;
-      }
-   }
+    public int getTile(int x, int y, int z) {
+        return x >= 0 && y >= 0 && z >= 0 && x < this.width && y < this.depth && z < this.height ? this.blocks[(y * this.height + z) * this.width + x] : 0;
+    }
 
-   private void neighborChanged(int x, int y, int z, int type) {
-      if (x >= 0 && y >= 0 && z >= 0 && x < this.width && y < this.depth && z < this.height) {
-         Tile tile = Tile.tiles[this.blocks[(y * this.height + z) * this.width + x]];
-         if (tile != null) {
-            tile.neighborChanged(this, x, y, z, type);
-         }
-      }
-   }
+    public boolean isSolidTile(int x, int y, int z) {
+        Tile tile = Tile.terrainTiles[this.getTile(x, y, z)];
+        return tile == null ? false : tile.isSolid();
+    }
 
-   public boolean isLit(int x, int y, int z) {
-      return x < 0 || y < 0 || z < 0 || x >= this.width || y >= this.depth || z >= this.height ? true : y >= this.lightDepths[x + z * this.width];
-   }
+    public void tick() {
+        this.unprocessed = this.unprocessed + this.width * this.height * this.depth;
+        int ticks = this.unprocessed / 200;
+        this.unprocessed -= ticks * 200;
 
-   public int getTile(int x, int y, int z) {
-      return x >= 0 && y >= 0 && z >= 0 && x < this.width && y < this.depth && z < this.height ? this.blocks[(y * this.height + z) * this.width + x] : 0;
-   }
-
-   public boolean isSolidTile(int x, int y, int z) {
-      Tile tile = Tile.tiles[this.getTile(x, y, z)];
-      return tile == null ? false : tile.isSolid();
-   }
-
-   public void tick() {
-      this.unprocessed = this.unprocessed + this.width * this.height * this.depth;
-      int ticks = this.unprocessed / 200;
-      this.unprocessed -= ticks * 200;
-
-      for (int i = 0; i < ticks; i++) {
-         this.randValue = this.randValue * 1664525 + 1013904223;
-         int x = this.randValue >> 16 & this.width - 1;
-         this.randValue = this.randValue * 1664525 + 1013904223;
-         int y = this.randValue >> 16 & this.depth - 1;
-         this.randValue = this.randValue * 1664525 + 1013904223;
-         int z = this.randValue >> 16 & this.height - 1;
-         int id = this.blocks[(y * this.height + z) * this.width + x];
-         if (Tile.shouldTick[id]) {
-            Tile.tiles[id].tick(this, x, y, z, this.random);
-         }
-      }
-   }
-
-   public float getGroundLevel() {
-      return 32.0F;
-   }
-
-   public boolean containsAnyLiquid(AABB box) {
-      int x0 = (int)Math.floor(box.x0);
-      int x1 = (int)Math.floor(box.x1 + 1.0F);
-      int y0 = (int)Math.floor(box.y0);
-      int y1 = (int)Math.floor(box.y1 + 1.0F);
-      int z0 = (int)Math.floor(box.z0);
-      int z1 = (int)Math.floor(box.z1 + 1.0F);
-      if (x0 < 0) {
-         x0 = 0;
-      }
-
-      if (y0 < 0) {
-         y0 = 0;
-      }
-
-      if (z0 < 0) {
-         z0 = 0;
-      }
-
-      if (x1 > this.width) {
-         x1 = this.width;
-      }
-
-      if (y1 > this.depth) {
-         y1 = this.depth;
-      }
-
-      if (z1 > this.height) {
-         z1 = this.height;
-      }
-
-      for (int x = x0; x < x1; x++) {
-         for (int y = y0; y < y1; y++) {
-            for (int z = z0; z < z1; z++) {
-               Tile tile = Tile.tiles[this.getTile(x, y, z)];
-               if (tile != null && tile.getLiquidType() > 0) {
-                  return true;
-               }
+        for (int i = 0; i < ticks; i++) {
+            this.randValue = this.randValue * 1664525 + 1013904223;
+            int x = this.randValue >> 16 & this.width - 1;
+            this.randValue = this.randValue * 1664525 + 1013904223;
+            int y = this.randValue >> 16 & this.depth - 1;
+            this.randValue = this.randValue * 1664525 + 1013904223;
+            int z = this.randValue >> 16 & this.height - 1;
+            int id = this.blocks[(y * this.height + z) * this.width + x];
+            if (Tile.shouldTick[id]) {
+                Tile.terrainTiles[id].tick(this, x, y, z, this.random);
             }
-         }
-      }
+        }
+    }
 
-      return false;
-   }
+    public float getGroundLevel() {
+        return 32.0F;
+    }
 
-   public boolean containsLiquid(AABB box, int liquidId) {
-      int x0 = (int)Math.floor(box.x0);
-      int x1 = (int)Math.floor(box.x1 + 1.0F);
-      int y0 = (int)Math.floor(box.y0);
-      int y1 = (int)Math.floor(box.y1 + 1.0F);
-      int z0 = (int)Math.floor(box.z0);
-      int z1 = (int)Math.floor(box.z1 + 1.0F);
-      if (x0 < 0) {
-         x0 = 0;
-      }
+    public boolean containsAnyLiquid(AABB box) {
+        int x0 = (int)Math.floor(box.x0);
+        int x1 = (int)Math.floor(box.x1 + 1.0F);
+        int y0 = (int)Math.floor(box.y0);
+        int y1 = (int)Math.floor(box.y1 + 1.0F);
+        int z0 = (int)Math.floor(box.z0);
+        int z1 = (int)Math.floor(box.z1 + 1.0F);
 
-      if (y0 < 0) {
-         y0 = 0;
-      }
+        if (x0 < 0) x0 = 0;
+        if (y0 < 0) y0 = 0;
+        if (z0 < 0) z0 = 0;
 
-      if (z0 < 0) {
-         z0 = 0;
-      }
+        if (x1 > this.width) x1 = this.width;
+        if (y1 > this.depth) y1 = this.depth;
+        if (z1 > this.height) z1 = this.height;
 
-      if (x1 > this.width) {
-         x1 = this.width;
-      }
+        for (int x = x0; x < x1; x++)
+            for (int y = y0; y < y1; y++)
+                for (int z = z0; z < z1; z++) {
+                    Tile tile = Tile.terrainTiles[this.getTile(x, y, z)];
+                    if (tile != null && tile.getLiquidType() > 0) {
+                        return true;
+                    }
+                }
 
-      if (y1 > this.depth) {
-         y1 = this.depth;
-      }
+        return false;
+    }
 
-      if (z1 > this.height) {
-         z1 = this.height;
-      }
+    public boolean containsLiquid(AABB box, int liquidId) {
+        int x0 = (int)Math.floor(box.x0);
+        int x1 = (int)Math.floor(box.x1 + 1.0F);
+        int y0 = (int)Math.floor(box.y0);
+        int y1 = (int)Math.floor(box.y1 + 1.0F);
+        int z0 = (int)Math.floor(box.z0);
+        int z1 = (int)Math.floor(box.z1 + 1.0F);
 
-      for (int x = x0; x < x1; x++) {
-         for (int y = y0; y < y1; y++) {
-            for (int z = z0; z < z1; z++) {
-               Tile tile = Tile.tiles[this.getTile(x, y, z)];
-               if (tile != null && tile.getLiquidType() == liquidId) {
-                  return true;
-               }
-            }
-         }
-      }
+        if (x0 < 0) x0 = 0;
+        if (y0 < 0) y0 = 0;
+        if (z0 < 0) z0 = 0;
 
-      return false;
-   }
+        if (this.width < x1) x1 = this.width;
+        if (this.depth < y1) y1 = this.depth;
+        if (this.height < z1) z1 = this.height;
+
+        for (int x = x0; x < x1; x++)
+            for (int y = y0; y < y1; y++)
+                for (int z = z0; z < z1; z++) {
+                    Tile tile = Tile.terrainTiles[this.getTile(x, y, z)];
+                    if (tile != null && tile.getLiquidType() == liquidId) {
+                        return true;
+                    }
+                }
+
+        return false;
+    }
 }

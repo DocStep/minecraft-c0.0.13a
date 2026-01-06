@@ -39,15 +39,15 @@ public class CalmLiquidTile extends LiquidTile {
       }
 
       if (hasAirNeighbor) {
-         level.setTileNoUpdate(x, y, z, this.tileId);
+         level.setTile(x, y, z, this.tileId, false);
       }
 
       if (this.liquidType == 1 && type == Tile.lava.id) {
-         level.setTileNoUpdate(x, y, z, Tile.rock.id);
+         level.setTile(x, y, z, Tile.rock.id, false);
       }
 
       if (this.liquidType == 2 && type == Tile.water.id) {
-         level.setTileNoUpdate(x, y, z, Tile.rock.id);
+         level.setTile(x, y, z, Tile.rock.id, false);
       }
    }
 }

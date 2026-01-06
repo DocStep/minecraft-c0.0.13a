@@ -53,7 +53,7 @@ public class Chunk {
             for (int z = this.z0; z < this.z1; z++) {
                int tileId = this.level.getTile(x, y, z);
                if (tileId > 0) {
-                  Tile.tiles[tileId].render(t, this.level, layer, x, y, z);
+                  Tile.terrainTiles[tileId].render(t, this.level, layer, x, y, z);
                   tiles++;
                }
             }

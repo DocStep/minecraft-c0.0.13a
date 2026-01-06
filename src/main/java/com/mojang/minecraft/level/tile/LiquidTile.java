@@ -43,7 +43,7 @@ public class LiquidTile extends Tile {
       boolean hasChanged = false;
 
       while (level.getTile(x, --y, z) == 0) {
-         boolean change = level.setTile(x, y, z, this.tileId);
+         boolean change = level.setTile(x, y, z, this.tileId, true);
          if (change) {
             hasChanged = true;
          }
@@ -62,7 +62,7 @@ public class LiquidTile extends Tile {
       }
 
       if (!hasChanged) {
-         level.setTileNoUpdate(x, y, z, this.calmTileId);
+         level.setTile(x, y, z, this.calmTileId, false);
       }
 
       return hasChanged;
@@ -72,7 +72,7 @@ public class LiquidTile extends Tile {
       boolean hasChanged = false;
       int type = level.getTile(x, y, z);
       if (type == 0) {
-         boolean changed = level.setTile(x, y, z, this.tileId);
+         boolean changed = level.setTile(x, y, z, this.tileId, true);
          if (changed && depth < this.spreadSpeed) {
             hasChanged |= this.updateWater(level, x, y, z, depth + 1);
          }
@@ -127,11 +127,11 @@ public class LiquidTile extends Tile {
    @Override
    public void neighborChanged(Level level, int x, int y, int z, int type) {
       if (this.liquidType == 1 && (type == Tile.lava.id || type == Tile.calmLava.id)) {
-         level.setTileNoUpdate(x, y, z, Tile.rock.id);
+         level.setTile(x, y, z, Tile.rock.id, false);
       }
 
       if (this.liquidType == 2 && (type == Tile.water.id || type == Tile.calmWater.id)) {
-         level.setTileNoUpdate(x, y, z, Tile.rock.id);
+         level.setTile(x, y, z, Tile.rock.id, false);
       }
    }
 }

@@ -16,7 +16,7 @@ public class Bush extends Tile {
    public void tick(Level level, int x, int y, int z, Random random) {
       int below = level.getTile(x, y - 1, z);
       if (!level.isLit(x, y, z) || below != Tile.dirt.id && below != Tile.grass.id) {
-         level.setTile(x, y, z, 0);
+         level.setTile(x, y, z, 0, true);
       }
    }
 

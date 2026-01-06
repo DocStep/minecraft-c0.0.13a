@@ -11,8 +11,8 @@ repositories {
 }
 
 dependencies {
-    implementation 'lwjgl:lwjgl:2.9.0'
-    implementation 'lwjgl_util:lwjgl_util:2.9.0'
+    implementation 'lwjgl:lwjgl'
+    implementation 'lwjgl_util:lwjgl_util'
 }
 
 // Include your assets in the JAR

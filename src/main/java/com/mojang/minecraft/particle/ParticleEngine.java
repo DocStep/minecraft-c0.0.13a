@@ -34,16 +34,16 @@ public class ParticleEngine {
 
    public void render(Player player, float a, int layer) {
       if (this.particles.size() != 0) {
-         GL11.glEnable(3553);
-         int id = this.textures.loadTexture("/terrain.png", 9728);
-         GL11.glBindTexture(3553, id);
+         GL11.glEnable(GL11.GL_TEXTURE_2D);
+         int id = this.textures.loadTexture("/assets/terrain.png", GL11.GL_NEAREST);
+         GL11.glBindTexture(GL11.GL_TEXTURE_2D, id);
          float xa = -((float)Math.cos(player.yRot * Math.PI / 180.0));
          float za = -((float)Math.sin(player.yRot * Math.PI / 180.0));
          float xa2 = -za * (float)Math.sin(player.xRot * Math.PI / 180.0);
          float za2 = xa * (float)Math.sin(player.xRot * Math.PI / 180.0);
          float ya = (float)Math.cos(player.xRot * Math.PI / 180.0);
          Tesselator t = Tesselator.instance;
-         GL11.glColor4f(0.8F, 0.8F, 0.8F, 1.0F);
+         GL11.glColor4f(0.8F, 0.8F, 0.8F, 0.0F);
          t.begin();
 
          for (int i = 0; i < this.particles.size(); i++) {
@@ -54,7 +54,7 @@ public class ParticleEngine {
          }
 
          t.end();
-         GL11.glDisable(3553);
+         GL11.glDisable(GL11.GL_TEXTURE_2D);
       }
    }
 }
